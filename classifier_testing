@@ -1,0 +1,63 @@
+import cv2
+import mediapipe as mp
+import pickle
+import numpy as np
+
+capture=cv2.VideoCapture(0)
+mp_hands=mp.solutions.hands
+mp_drawing=mp.solutions.drawing_utils
+mp_drawing_styles=mp.solutions.drawing_styles
+
+labels_dict={0:'Hello',1:'L',2:'I Love you'}
+hands=mp_hands.Hands(static_image_mode=True,min_detection_confidence=0.3)
+model_dict=pickle.load(open('./model.p','rb'))
+model=model_dict['model']
+
+while True:
+    data_aux=[]
+    x_=[]
+    y_=[]
+    ret,frame=capture.read()
+    frame_rgb=cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+    H,W,_=frame.shape
+
+    results=hands.process(frame_rgb)#processes an RGB image and returns the hand landmarks and handedness (left v.s. right hand) of each detected hand
+    if results.multi_hand_landmarks:#going through all the landmarks
+        for h_landmarks in results.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(
+            frame,
+            h_landmarks,
+            mp_hands.HAND_CONNECTIONS,
+            mp_drawing_styles.get_default_hand_landmarks_style(),
+            mp_drawing_styles.get_default_hand_connections_style()
+            ) 
+        for h_landmarks in results.multi_hand_landmarks:#taking landmarks and creating array for data processing
+                for i in range(len(h_landmarks.landmark)):
+                    #print(h_landmarks.landmark[i])
+                    x=h_landmarks.landmark[i].x
+                    y=h_landmarks.landmark[i].y
+                    z=h_landmarks.landmark[i].z
+                    data_aux.append(x)
+                    data_aux.append(y)
+                    x_.append(x)
+                    y_.append(y)
+        x1=int(min(x_)*W)-10
+        y1=int(min(y_)*H)-10
+
+        x2=int(max(x_)*W)-10
+        y2=int(max(y_)*H)-10
+
+        predicted=model.predict([np.asarray(data_aux)])
+
+        predicted_char=labels_dict[int(predicted[0])]
+
+        #print(predicted_char)
+        cv2.rectangle(frame,(x1,y1),(x2,y2),(0,0,0),5)
+        cv2.putText(frame,predicted_char,(x1,y1-10),cv2.FONT_HERSHEY_TRIPLEX,1.3,(0,255,0),3,cv2.LINE_AA)
+
+    cv2.imshow("camera feed",frame)
+    cv2.waitKey(1)
+
+capture.release()
+cv2.destroyAllWindows()
+    
